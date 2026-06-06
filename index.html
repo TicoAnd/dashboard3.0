@@ -1,1 +1,758 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lista della Spesa</title>
+  <style>
+    :root {
+      --bg: #0f0f11;
+      --surface: #18181c;
+      --surface-raised: #1e1e24;
+      --border: rgba(255,255,255,0.07);
+      --border-focus: rgba(255,255,255,0.18);
+      --text: #f0eee8;
+      --muted: rgba(240,238,232,0.5);
+      --faint: rgba(240,238,232,0.28);
+      --ila:    #f4a4c0;
+      --andre:  #89c4f4;
+      --matte:  #a8e6a3;
+      --nick:   #f4d08a;
+      --ila-bg:   rgba(244,164,192,0.1);
+      --andre-bg: rgba(137,196,244,0.1);
+      --matte-bg: rgba(168,230,163,0.1);
+      --nick-bg:  rgba(244,208,138,0.1);
+      --radius: 18px;
+      --radius-sm: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse at 20% 0%,  rgba(137,196,244,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(244,164,192,0.05) 0%, transparent 50%),
+        var(--bg);
+    }
+
+    /* ── FIRST-RUN OVERLAY ───────────────────────── */
+    #first-run {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(10,10,14,0.92);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    #first-run.hidden { display: none; }
+
+    .first-run-card {
+      max-width: 420px; width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border-focus);
+      border-radius: 24px;
+      padding: 36px 32px;
+      text-align: center;
+    }
+
+    .first-run-card .icon { font-size: 2.8rem; margin-bottom: 16px; }
+
+    .first-run-card h2 {
+      font-size: 1.3rem; font-weight: 600;
+      letter-spacing: -0.02em; margin-bottom: 10px;
+    }
+
+    .first-run-card p {
+      color: var(--muted); font-size: 0.9rem;
+      line-height: 1.6; margin-bottom: 28px;
+    }
+
+    .first-run-btn {
+      width: 100%; padding: 14px;
+      background: var(--text); color: var(--bg);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: opacity 200ms;
+      font-family: inherit;
+    }
+
+    .first-run-btn:hover { opacity: 0.88; }
+
+    .first-run-divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 20px 0; color: var(--faint); font-size: 0.82rem;
+    }
+
+    .first-run-divider::before,
+    .first-run-divider::after {
+      content: ""; flex: 1;
+      height: 1px; background: var(--border);
+    }
+
+    .join-row { display: flex; gap: 8px; }
+
+    .join-input {
+      flex: 1;
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      color: var(--text); font-size: 0.88rem;
+      outline: none; font-family: inherit;
+      transition: border-color 200ms;
+    }
+
+    .join-input::placeholder { color: var(--faint); }
+    .join-input:focus { border-color: var(--border-focus); }
+
+    .join-btn {
+      padding: 12px 18px;
+      background: transparent;
+      border: 1px solid var(--border-focus);
+      border-radius: var(--radius-sm);
+      color: var(--text); font-size: 0.88rem;
+      cursor: pointer; white-space: nowrap;
+      font-family: inherit;
+      transition: background 200ms;
+    }
+
+    .join-btn:hover { background: rgba(255,255,255,0.06); }
+
+    /* ── LAYOUT ─────────────────────────────────── */
+    .app {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    /* ── HEADER ─────────────────────────────────── */
+    header {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-bottom: 36px; gap: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 1.6rem; font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+
+    .header-left .subtitle {
+      color: var(--muted); font-size: 0.88rem; margin-top: 3px;
+    }
+
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+
+    .share-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted); font-size: 0.82rem;
+      cursor: pointer; font-family: inherit;
+      transition: border-color 200ms, color 200ms;
+      white-space: nowrap;
+    }
+
+    .share-btn:hover { border-color: var(--border-focus); color: var(--text); }
+
+    .item-count {
+      color: var(--muted); font-size: 0.85rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 6px 14px; border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    /* ── USER BAR ────────────────────────────────── */
+    .user-bar {
+      display: flex; gap: 8px;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+
+    .user-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px 8px 10px;
+      border-radius: 999px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--muted); font-size: 0.88rem;
+      cursor: pointer; font-family: inherit;
+      transition: all 200ms ease;
+    }
+
+    .user-chip:hover { border-color: var(--border-focus); color: var(--text); }
+    .user-chip[data-user="ila"].active   { border-color: var(--ila);   background: var(--ila-bg);   color: var(--ila); }
+    .user-chip[data-user="andre"].active { border-color: var(--andre); background: var(--andre-bg); color: var(--andre); }
+    .user-chip[data-user="matte"].active { border-color: var(--matte); background: var(--matte-bg); color: var(--matte); }
+    .user-chip[data-user="nick"].active  { border-color: var(--nick);  background: var(--nick-bg);  color: var(--nick); }
+
+    .avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; flex: none;
+    }
+
+    .avatar[data-user="ila"]   { background: var(--ila);   color: #1a0a10; }
+    .avatar[data-user="andre"] { background: var(--andre); color: #051524; }
+    .avatar[data-user="matte"] { background: var(--matte); color: #051a04; }
+    .avatar[data-user="nick"]  { background: var(--nick);  color: #1a1204; }
+
+    /* ── ADD FORM ────────────────────────────────── */
+    .add-form { display: flex; gap: 10px; margin-bottom: 32px; }
+
+    .add-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      color: var(--text); font-size: 0.95rem;
+      outline: none; font-family: inherit;
+      transition: border-color 200ms;
+    }
+
+    .add-input::placeholder { color: var(--faint); }
+    .add-input:focus { border-color: var(--border-focus); }
+
+    .add-btn {
+      width: 48px; height: 48px;
+      border-radius: var(--radius-sm);
+      border: none; background: var(--text); color: var(--bg);
+      font-size: 1.5rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex: none; transition: opacity 200ms, transform 120ms;
+    }
+
+    .add-btn:hover  { opacity: 0.88; }
+    .add-btn:active { transform: scale(0.94); }
+    .add-btn:disabled { opacity: 0.28; cursor: not-allowed; }
+
+    /* ── LIST ────────────────────────────────────── */
+    .section-label {
+      font-size: 0.78rem; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--faint);
+      margin-bottom: 12px;
+    }
+
+    #item-list { display: grid; gap: 8px; list-style: none; }
+
+    .item-card {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color 200ms, opacity 220ms;
+      animation: slide-in 220ms ease;
+    }
+
+    .item-card:hover { border-color: var(--border-focus); }
+    .item-card.checked { opacity: 0.38; }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .check-btn {
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 1.5px solid var(--border-focus);
+      background: transparent; cursor: pointer; flex: none;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 180ms; color: transparent;
+      font-size: 0.72rem; font-family: inherit;
+    }
+
+    .item-card.checked .check-btn {
+      background: rgba(255,255,255,0.18);
+      border-color: transparent; color: var(--text);
+    }
+
+    .item-text {
+      flex: 1; font-size: 0.97rem; line-height: 1.3;
+      min-width: 0; word-break: break-word;
+    }
+
+    .item-card.checked .item-text { text-decoration: line-through; }
+
+    .item-meta { display: flex; align-items: center; gap: 7px; flex: none; }
+
+    .item-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; font-weight: 700; flex: none;
+    }
+
+    .item-avatar[data-user="ila"]   { background: var(--ila-bg);   color: var(--ila);   border: 1px solid var(--ila); }
+    .item-avatar[data-user="andre"] { background: var(--andre-bg); color: var(--andre); border: 1px solid var(--andre); }
+    .item-avatar[data-user="matte"] { background: var(--matte-bg); color: var(--matte); border: 1px solid var(--matte); }
+    .item-avatar[data-user="nick"]  { background: var(--nick-bg);  color: var(--nick);  border: 1px solid var(--nick); }
+
+    .item-name-tag { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+
+    .delete-btn {
+      width: 28px; height: 28px; border-radius: 8px;
+      border: none; background: transparent; color: var(--faint);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; font-size: 0.85rem;
+      transition: background 160ms, color 160ms; flex: none;
+      font-family: inherit;
+    }
+
+    .delete-btn:hover { background: rgba(255,80,80,0.12); color: rgba(255,120,120,0.9); }
+
+    /* ── EMPTY ───────────────────────────────────── */
+    .empty-state { text-align: center; padding: 52px 0; color: var(--faint); }
+    .empty-state .icon { font-size: 2.4rem; margin-bottom: 12px; }
+    .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+    /* ── DONE SECTION ────────────────────────────── */
+    .done-toggle {
+      display: flex; align-items: center; gap: 8px;
+      background: none; border: none;
+      color: var(--faint); font-size: 0.82rem;
+      cursor: pointer; font-family: inherit;
+      margin-top: 28px; margin-bottom: 12px;
+      padding: 0; transition: color 180ms;
+    }
+
+    .done-toggle:hover { color: var(--muted); }
+    .done-toggle .arrow { transition: transform 200ms; display: inline-block; }
+    .done-toggle.open .arrow { transform: rotate(90deg); }
+    #done-list { display: none; gap: 8px; list-style: none; }
+    #done-list.visible { display: grid; }
+
+    /* ── STATUS BAR ──────────────────────────────── */
+    .status-bar {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface-raised);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 18px; font-size: 0.82rem;
+      color: var(--muted);
+      display: flex; align-items: center; gap: 8px;
+      pointer-events: none; white-space: nowrap; z-index: 10;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--nick);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+
+    .status-dot.online  { background: #4caf7d; animation: pulse-dot 2.5s ease-in-out infinite; }
+    .status-dot.offline { background: #f55; animation: none; }
+    .status-dot.saving  { background: var(--andre); animation: pulse-dot 0.7s ease-in-out infinite; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── TOAST ───────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: 72px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--surface-raised);
+      border: 1px solid var(--border-focus);
+      border-radius: 999px;
+      padding: 8px 20px; font-size: 0.85rem;
+      color: var(--text);
+      opacity: 0; pointer-events: none;
+      transition: opacity 220ms, transform 220ms;
+      z-index: 20; white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── RESPONSIVE ──────────────────────────────── */
+    @media (max-width: 480px) {
+      .app { padding: 28px 16px 72px; }
+      header { flex-wrap: wrap; }
+      .add-form { flex-direction: column; }
+      .add-btn { width: 100%; height: 48px; }
+      .item-name-tag { display: none; }
+      .delete-btn { width: 40px; height: 40px; }
+      .check-btn  { width: 30px; height: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── FIRST RUN ─────────────────────────────── -->
+  <div id="first-run">
+    <div class="first-run-card">
+      <div class="icon">🛒</div>
+      <h2>Lista della Spesa</h2>
+      <p>Crea una nuova lista condivisa con la famiglia, oppure incolla il codice ricevuto da qualcuno per unirti alla sua lista.</p>
+      <button class="first-run-btn" onclick="createList()">Crea lista →</button>
+      <div class="first-run-divider">oppure unisciti</div>
+      <div class="join-row">
+        <input id="join-input" class="join-input" placeholder="Incolla il codice lista…" maxlength="40" />
+        <button class="join-btn" onclick="joinList()">Entra</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── APP ───────────────────────────────────── -->
+  <div class="app">
+    <header>
+      <div class="header-left">
+        <h1>Lista della Spesa</h1>
+        <div class="subtitle">Famiglia · aggiornamento ogni 5 secondi</div>
+      </div>
+      <div class="header-actions">
+        <button class="share-btn" onclick="shareList()">⬆ Condividi</button>
+        <div class="item-count" id="item-count">—</div>
+      </div>
+    </header>
+
+    <!-- Utenti -->
+    <div class="user-bar">
+      <button class="user-chip" data-user="ila"   onclick="selectUser('ila')">
+        <span class="avatar" data-user="ila">ILA</span> Ila
+      </button>
+      <button class="user-chip" data-user="andre" onclick="selectUser('andre')">
+        <span class="avatar" data-user="andre">AND</span> Andre
+      </button>
+      <button class="user-chip" data-user="matte" onclick="selectUser('matte')">
+        <span class="avatar" data-user="matte">MAT</span> Matte
+      </button>
+      <button class="user-chip" data-user="nick"  onclick="selectUser('nick')">
+        <span class="avatar" data-user="nick">NCK</span> Nick
+      </button>
+    </div>
+
+    <!-- Form -->
+    <form class="add-form" onsubmit="addItem(event)">
+      <input id="item-input" class="add-input" type="text"
+        placeholder="Seleziona prima il tuo nome…"
+        autocomplete="off" maxlength="120" disabled />
+      <button type="submit" class="add-btn" id="add-btn" disabled>+</button>
+    </form>
+
+    <!-- Lista -->
+    <div class="section-label">Da comprare</div>
+    <ul id="item-list">
+      <li class="empty-state">
+        <div class="icon">🛒</div>
+        <p>Nessun articolo ancora.<br>Seleziona il tuo nome e inizia!</p>
+      </li>
+    </ul>
+
+    <button class="done-toggle" id="done-toggle" onclick="toggleDone()">
+      <span class="arrow">▶</span>
+      <span id="done-label">Nel carrello (0)</span>
+    </button>
+    <ul id="done-list"></ul>
+  </div>
+
+  <div class="status-bar">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Connessione…</span>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    /* ─────────────────────────────────────────────
+       COSTANTI
+    ───────────────────────────────────────────── */
+    const API      = "https://jsonblob.com/api/jsonBlob";
+    const USER_KEY = "spesa_user";
+    const ID_KEY   = "spesa_blob_id";
+    const POLL_MS  = 5000;
+
+    const DISPLAY  = { ila: "Ila", andre: "Andre", matte: "Matte", nick: "Nick" };
+    const INITIALS = { ila: "ILA", andre: "AND", matte: "MAT", nick: "NCK" };
+
+    /* ─────────────────────────────────────────────
+       STATO
+    ───────────────────────────────────────────── */
+    let blobId      = null;
+    let items       = {};          /* id → {text, user, done, ts} */
+    let currentUser = localStorage.getItem(USER_KEY) || null;
+    let doneOpen    = false;
+    let pollTimer   = null;
+    let saveQueue   = null;        /* pending write */
+    let isSaving    = false;
+    let lastEtag    = null;
+
+    /* ─────────────────────────────────────────────
+       FIRST-RUN
+    ───────────────────────────────────────────── */
+    function boot() {
+      /* ID nell'hash URL (#abc123) oppure in localStorage */
+      const hash = window.location.hash.slice(1).trim();
+      const stored = localStorage.getItem(ID_KEY);
+      const id = hash || stored;
+
+      if (id) {
+        blobId = id;
+        localStorage.setItem(ID_KEY, id);
+        window.location.hash = id;
+        document.getElementById("first-run").classList.add("hidden");
+        startPolling();
+      }
+      /* altrimenti mostra first-run overlay */
+    }
+
+    async function createList() {
+      setStatus("loading", "Creazione lista…");
+      try {
+        const res = await fetch(API, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body:    JSON.stringify({ items: {} })
+        });
+        if (!res.ok) throw new Error(res.status);
+        const loc = res.headers.get("Location") || "";
+        blobId = loc.split("/").pop();
+        if (!blobId) throw new Error("no id");
+        localStorage.setItem(ID_KEY, blobId);
+        window.location.hash = blobId;
+        document.getElementById("first-run").classList.add("hidden");
+        items = {};
+        renderAll();
+        startPolling();
+      } catch (e) {
+        setStatus("offline", "Errore — riprova tra poco");
+        showToast("Impossibile creare la lista. Controlla la connessione.");
+      }
+    }
+
+    function joinList() {
+      const val = document.getElementById("join-input").value.trim();
+      if (!val) { showToast("Incolla il codice ricevuto"); return; }
+      blobId = val;
+      localStorage.setItem(ID_KEY, val);
+      window.location.hash = val;
+      document.getElementById("first-run").classList.add("hidden");
+      startPolling();
+    }
+
+    /* ─────────────────────────────────────────────
+       POLLING
+    ───────────────────────────────────────────── */
+    function startPolling() {
+      fetchRemote();
+      pollTimer = setInterval(fetchRemote, POLL_MS);
+    }
+
+    async function fetchRemote() {
+      try {
+        const headers = { "Accept": "application/json" };
+        if (lastEtag) headers["If-None-Match"] = lastEtag;
+
+        const res = await fetch(API + "/" + blobId, { headers });
+
+        if (res.status === 304) {
+          /* nessuna modifica */
+          setStatus("online", "Aggiornato · ogni 5 s");
+          return;
+        }
+        if (!res.ok) throw new Error(res.status);
+
+        const etag = res.headers.get("ETag");
+        if (etag) lastEtag = etag;
+
+        const data = await res.json();
+        items = data.items || {};
+        renderAll();
+        setStatus("online", "Aggiornato · ogni 5 s");
+      } catch (e) {
+        setStatus("offline", "Offline — riconnessione in corso…");
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       SCRITTURA (debounce 400ms)
+    ───────────────────────────────────────────── */
+    function scheduleWrite() {
+      if (saveQueue) clearTimeout(saveQueue);
+      saveQueue = setTimeout(flushWrite, 400);
+    }
+
+    async function flushWrite() {
+      if (isSaving) { scheduleWrite(); return; }
+      isSaving = true;
+      setStatus("saving", "Salvataggio…");
+      try {
+        const res = await fetch(API + "/" + blobId, {
+          method:  "PUT",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body:    JSON.stringify({ items })
+        });
+        if (!res.ok) throw new Error(res.status);
+        const etag = res.headers.get("ETag");
+        if (etag) lastEtag = etag;
+        setStatus("online", "Aggiornato · ogni 5 s");
+      } catch (e) {
+        setStatus("offline", "Errore salvataggio — riprovo…");
+        scheduleWrite(); /* riprova */
+      } finally {
+        isSaving = false;
+      }
+    }
+
+    /* ─────────────────────────────────────────────
+       UTENTE
+    ───────────────────────────────────────────── */
+    function selectUser(user) {
+      currentUser = user;
+      localStorage.setItem(USER_KEY, user);
+      document.querySelectorAll(".user-chip").forEach(c => c.classList.remove("active"));
+      document.querySelector(`.user-chip[data-user="${user}"]`).classList.add("active");
+      document.getElementById("add-btn").disabled    = false;
+      document.getElementById("item-input").disabled = false;
+      document.getElementById("item-input").placeholder = "Cosa compriamo, " + DISPLAY[user] + "?";
+    }
+
+    /* ─────────────────────────────────────────────
+       ADD / TOGGLE / DELETE
+    ───────────────────────────────────────────── */
+    function addItem(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+      const input = document.getElementById("item-input");
+      const text  = input.value.trim();
+      if (!text) return;
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      items[id] = { text, user: currentUser, done: false, ts: Date.now() };
+      input.value = "";
+      renderAll();
+      scheduleWrite();
+    }
+
+    function toggleCheck(id) {
+      if (!items[id]) return;
+      items[id].done = !items[id].done;
+      renderAll();
+      scheduleWrite();
+    }
+
+    function deleteItem(id) {
+      delete items[id];
+      renderAll();
+      scheduleWrite();
+    }
+
+    /* ─────────────────────────────────────────────
+       CONDIVIDI
+    ───────────────────────────────────────────── */
+    function shareList() {
+      const url = window.location.href.split("#")[0] + "#" + blobId;
+      if (navigator.share) {
+        navigator.share({ title: "Lista della Spesa", url })
+          .catch(() => copyToClipboard(url));
+      } else {
+        copyToClipboard(url);
+      }
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text)
+        .then(() => showToast("Link copiato! Condividilo con la famiglia 🎉"))
+        .catch(() => showToast("Codice lista: " + blobId));
+    }
+
+    /* ─────────────────────────────────────────────
+       RENDER
+    ───────────────────────────────────────────── */
+    function renderAll() {
+      const todo = [];
+      const done = [];
+
+      Object.entries(items)
+        .sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0))
+        .forEach(([id, item]) => {
+          (item.done ? done : todo).push({ id, ...item });
+        });
+
+      renderList("item-list", todo, true);
+      renderList("done-list", done, false);
+
+      document.getElementById("item-count").textContent =
+        todo.length === 0 ? "Vuota" :
+        todo.length === 1 ? "1 articolo" :
+        todo.length + " articoli";
+
+      document.getElementById("done-label").textContent =
+        "Nel carrello (" + done.length + ")";
+    }
+
+    function renderList(listId, entries, showEmpty) {
+      const ul = document.getElementById(listId);
+      if (entries.length === 0) {
+        ul.innerHTML = showEmpty
+          ? `<li class="empty-state"><div class="icon">🛒</div><p>Nessun articolo ancora.<br>Seleziona il tuo nome e inizia!</p></li>`
+          : "";
+        return;
+      }
+      ul.innerHTML = entries.map(item => `
+        <li class="item-card${item.done ? " checked" : ""}">
+          <button class="check-btn" onclick="toggleCheck('${item.id}')">
+            ${item.done ? "✓" : ""}
+          </button>
+          <span class="item-text">${esc(item.text)}</span>
+          <div class="item-meta">
+            <span class="item-avatar" data-user="${item.user}">${INITIALS[item.user] || "?"}</span>
+            <span class="item-name-tag">${DISPLAY[item.user] || item.user}</span>
+          </div>
+          <button class="delete-btn" onclick="deleteItem('${item.id}')">✕</button>
+        </li>
+      `).join("");
+    }
+
+    /* ─────────────────────────────────────────────
+       DONE TOGGLE
+    ───────────────────────────────────────────── */
+    function toggleDone() {
+      doneOpen = !doneOpen;
+      document.getElementById("done-toggle").classList.toggle("open", doneOpen);
+      document.getElementById("done-list").classList.toggle("visible", doneOpen);
+    }
+
+    /* ─────────────────────────────────────────────
+       STATUS / TOAST
+    ───────────────────────────────────────────── */
+    function setStatus(state, text) {
+      document.getElementById("status-dot").className = "status-dot " + (state === "loading" ? "" : state);
+      document.getElementById("status-text").textContent = text;
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+        .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    }
+
+    /* ─────────────────────────────────────────────
+       BOOT
+    ───────────────────────────────────────────── */
+    if (currentUser) selectUser(currentUser);
+    boot();
+  </script>
+</body>
+</html>
 
